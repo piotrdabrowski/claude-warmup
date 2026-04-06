@@ -1,8 +1,24 @@
 # claude-warmup
 
+> Fork of [vdsmon/claude-warmup](https://github.com/vdsmon/claude-warmup) with multi-token support.
+
 Manipulate Claude Code's 5-hour usage window into resetting when you actually need it.
 
 EDIT: You can apply the same concept and achieve the exact same goal in a "native" way by using a Claude Code Web scheduled task: https://claude.ai/code/scheduled. It works flawlessly! The "Why" section below is still very useful for visualizing why would you do this at all.
+
+## What's different in this fork
+
+**Multi-token support via matrix strategy.**
+
+Run up to 5 tokens in parallel — each as a separate job. Jobs for unset tokens are skipped automatically, so no workflow changes are needed when adding or removing tokens.
+
+| Secret name | Required |
+|---|---|
+| `CLAUDE_OAUTH_TOKEN_1` | Yes (at least one) |
+| `CLAUDE_OAUTH_TOKEN_2` | No |
+| `CLAUDE_OAUTH_TOKEN_3` | No |
+| `CLAUDE_OAUTH_TOKEN_4` | No |
+| `CLAUDE_OAUTH_TOKEN_5` | No |
 
 ## Why
 
@@ -56,13 +72,22 @@ claude setup-token
 
 Opens a browser for OAuth. Gives you a token starting with `sk-ant-oat01-...`, good for about a year.
 
-### 3. Store it as a secret
+### 3. Store your token(s) as secrets
+
+For a single token:
 
 ```bash
-gh secret set CLAUDE_OAUTH_TOKEN
+gh secret set CLAUDE_OAUTH_TOKEN_1
 ```
 
-Paste when prompted.
+For multiple tokens, repeat for each:
+
+```bash
+gh secret set CLAUDE_OAUTH_TOKEN_2
+gh secret set CLAUDE_OAUTH_TOKEN_3
+```
+
+Paste when prompted. Tokens without a corresponding secret are skipped automatically.
 
 ### 4. Set your schedule
 
@@ -148,14 +173,14 @@ The workflow file is missing from your fork's default branch, or GitHub Actions 
 **`Must have admin rights to Repository`**
 You're probably dispatching against the upstream repo instead of your fork. Run `gh workflow run warmup.yml --repo <your-user>/claude-warmup` or set the default with `gh repo set-default <your-user>/claude-warmup`.
 
-**`CLAUDE_OAUTH_TOKEN secret is not set`**
+**`CLAUDE_OAUTH_TOKEN_N secret is not set`**
 Add the secret in your fork under `Settings > Secrets and variables > Actions`, then rerun the workflow.
 
-**`Claude token appears invalid or expired`**
-Run `claude setup-token` on a machine where you're logged into Claude Code, then update the `CLAUDE_OAUTH_TOKEN` secret in your fork and rerun the workflow. The warmup step checks for this directly.
+**`Token N appears invalid or expired`**
+Run `claude setup-token` on a machine where you're logged into Claude Code, then update the relevant `CLAUDE_OAUTH_TOKEN_N` secret in your fork and rerun the workflow.
 
 **Unexpected Claude CLI failure**
-Check the workflow logs. The job now prints the full Claude CLI output and only treats explicit rate-limit responses as expected.
+Check the workflow logs. The job prints the full Claude CLI output and only treats explicit rate-limit responses as expected.
 
 ## License
 

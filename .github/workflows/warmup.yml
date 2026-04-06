@@ -7,30 +7,48 @@ on:
 
 concurrency:
   group: claude-warmup
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   warmup:
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        slot: [1, 2, 3, 4, 5]
+    name: Warmup token ${{ matrix.slot }}
     steps:
-      - name: Validate configuration
+      - name: Check token
+        id: check
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+          T1: ${{ secrets.CLAUDE_OAUTH_TOKEN_1 }}
+          T2: ${{ secrets.CLAUDE_OAUTH_TOKEN_2 }}
+          T3: ${{ secrets.CLAUDE_OAUTH_TOKEN_3 }}
+          T4: ${{ secrets.CLAUDE_OAUTH_TOKEN_4 }}
+          T5: ${{ secrets.CLAUDE_OAUTH_TOKEN_5 }}
         run: |
-          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
-            echo "CLAUDE_OAUTH_TOKEN secret is not set."
-            echo "Add it in Settings > Secrets and variables > Actions."
-            exit 1
+          TOKEN=$(eval echo \$T${{ matrix.slot }})
+          if [ -z "$TOKEN" ]; then
+            echo "CLAUDE_OAUTH_TOKEN_${{ matrix.slot }} not set — skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Install Claude Code
+        if: steps.check.outputs.skip != 'true'
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Ping Claude to anchor 5-hour window
+        if: steps.check.outputs.skip != 'true'
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+          T1: ${{ secrets.CLAUDE_OAUTH_TOKEN_1 }}
+          T2: ${{ secrets.CLAUDE_OAUTH_TOKEN_2 }}
+          T3: ${{ secrets.CLAUDE_OAUTH_TOKEN_3 }}
+          T4: ${{ secrets.CLAUDE_OAUTH_TOKEN_4 }}
+          T5: ${{ secrets.CLAUDE_OAUTH_TOKEN_5 }}
         run: |
+          export CLAUDE_CODE_OAUTH_TOKEN=$(eval echo \$T${{ matrix.slot }})
+
           mkdir -p ~/.claude
           echo '{"hasCompletedOnboarding":true}' > ~/.claude.json
           output_file="$(mktemp)"
@@ -41,22 +59,22 @@ jobs:
           cat "$output_file"
 
           if [ $status -eq 0 ]; then
-            echo "Claude warmup request succeeded."
+            echo "Token ${{ matrix.slot }} warmup succeeded."
             echo "✓ Warmup complete"
             exit 0
           fi
 
           if grep -Eiq "expired|unauthorized|invalid token|authentication|auth failed|login required|not logged in" "$output_file"; then
-            echo "Claude token appears invalid or expired."
-            echo "Run 'claude setup-token' locally and update the CLAUDE_OAUTH_TOKEN GitHub secret."
+            echo "Token ${{ matrix.slot }} appears invalid or expired."
+            echo "Run 'claude setup-token' locally and update CLAUDE_OAUTH_TOKEN_${{ matrix.slot }} secret."
             exit 1
           fi
 
           if grep -qi "rate limit" "$output_file"; then
-            echo "Claude reported a rate limit; treating as warmup success."
+            echo "Rate limit hit for token ${{ matrix.slot }}; treating as warmup success."
             echo "✓ Warmup complete"
             exit 0
           fi
 
-          echo "Claude warmup failed with an unexpected error."
+          echo "Warmup failed for token ${{ matrix.slot }} with an unexpected error."
           exit $status

@@ -1,8 +1,12 @@
 name: Claude Code Warmup
 
+# Harmonogram wylaczony 05.09.2026 — darmowy cron GitHub Actions dla malo
+# aktywnych repo mial losowe opoznienia rzedu kilku godzin (widziane 03:2x az
+# do 07-08 UTC), co bez sensu przy zakotwiczaniu 5-godzinnego okna o konkretnej
+# porze. Warmup przeniesiony na cron hosta rails-prod w repo lootprice
+# (bin/claude_warmup.sh, config/crontab.heavy). workflow_dispatch zostaje jako
+# reczny fallback / test.
 on:
-  schedule:
-    - cron: '30 2 * * *'
   workflow_dispatch: {}
 
 concurrency:
